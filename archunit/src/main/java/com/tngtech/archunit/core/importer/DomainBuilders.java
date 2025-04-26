@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,6 +89,7 @@ import static com.tngtech.archunit.core.domain.JavaConstructor.CONSTRUCTOR_NAME;
 import static com.tngtech.archunit.core.domain.properties.HasName.Utils.namesOf;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toCollection;
 
 @Internal
 @SuppressWarnings("UnusedReturnValue")
@@ -716,14 +718,23 @@ public final class DomainBuilders {
             }
 
             Map<JavaTypeVariable<OWNER>, JavaTypeParameterBuilder<OWNER>> typeArgumentsToBuilders = new LinkedHashMap<>();
+
             for (JavaTypeParameterBuilder<OWNER> builder : typeParameterBuilders) {
                 typeArgumentsToBuilders.put(builder.build(owner, ImportedClasses), builder);
             }
-            Set<JavaTypeVariable<?>> allGenericParametersInContext = union(typeParametersFromEnclosingContextOf(owner), typeArgumentsToBuilders.keySet());
-            for (Map.Entry<JavaTypeVariable<OWNER>, JavaTypeParameterBuilder<OWNER>> typeParameterToBuilder : typeArgumentsToBuilders.entrySet()) {
-                List<JavaType> upperBounds = typeParameterToBuilder.getValue().getUpperBounds(allGenericParametersInContext);
-                completeTypeVariable(typeParameterToBuilder.getKey(), upperBounds);
-            }
+
+            Set<JavaTypeVariable<?>> allGenericParametersInContext = union(
+                    // The order of arguments is important, as the iterating over the union iterates
+                    // first over elements of the first argument, then over those elements of the seconds argument
+                    // which are not contained in the first one.
+                    typeArgumentsToBuilders.keySet(),
+                    typeParametersFromEnclosingContextOf(owner));
+
+            typeArgumentsToBuilders.forEach((typeVariable, typeParameterBuilder) -> {
+                List<JavaType> upperBounds = typeParameterBuilder.getUpperBounds(allGenericParametersInContext);
+                completeTypeVariable(typeVariable, upperBounds);
+            });
+
             return ImmutableList.copyOf(typeArgumentsToBuilders.keySet());
         }
 
@@ -754,9 +765,10 @@ public final class DomainBuilders {
 
     private static Set<JavaTypeVariable<?>> allTypeParametersInEnclosingContextOf(JavaCodeUnit codeUnit) {
         JavaClass declaringClass = codeUnit.getOwner();
-        return FluentIterable.from(getTypeParametersOf(declaringClass))
-                .append(allTypeParametersInEnclosingContextOf(declaringClass))
-                .toSet();
+        return Stream.concat(
+                        getTypeParametersOf(declaringClass).stream(),
+                        allTypeParametersInEnclosingContextOf(declaringClass).stream())
+                .collect(toCollection(LinkedHashSet::new));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -766,7 +778,7 @@ public final class DomainBuilders {
     }
 
     private static Set<JavaTypeVariable<?>> allTypeParametersInEnclosingContextOf(JavaClass javaClass) {
-        Set<JavaTypeVariable<?>> result = new HashSet<>();
+        Set<JavaTypeVariable<?>> result = new LinkedHashSet<>();
         while (javaClass.getEnclosingClass().isPresent()) {
             if (javaClass.getEnclosingCodeUnit().isPresent()) {
                 // Note that there can't be a case where we could have an enclosing code unit without an enclosing class,
