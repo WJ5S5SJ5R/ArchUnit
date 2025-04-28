@@ -15,6 +15,7 @@
  */
 package com.tngtech.archunit.core.importer;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.tngtech.archunit.base.HasDescription;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.AccessTarget.ConstructorCallTarget;
@@ -281,7 +281,7 @@ class ClassGraphCreator implements ImportContext {
     }
 
     private static Iterable<JavaTypeVariable<?>> getTypeParametersInContextOf(JavaClass javaClass) {
-        Set<JavaTypeVariable<?>> result = Sets.newHashSet(javaClass.getTypeParameters());
+        Set<JavaTypeVariable<?>> result = new LinkedHashSet<>(javaClass.getTypeParameters());
         while (javaClass.getEnclosingClass().isPresent()) {
             javaClass = javaClass.getEnclosingClass().get();
             result.addAll(javaClass.getTypeParameters());
