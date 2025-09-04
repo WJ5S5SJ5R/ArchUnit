@@ -724,8 +724,8 @@ public final class DomainBuilders {
             }
 
             Set<JavaTypeVariable<?>> allGenericParametersInContext = union(
-                    // The order of arguments is important, as the iterating over the union iterates
-                    // first over elements of the first argument, then over those elements of the seconds argument
+                    // The order of arguments is important, as iterating over the union iterates first
+                    // over elements of the first argument, then over those elements of the seconds argument
                     // which are not contained in the first one.
                     typeArgumentsToBuilders.keySet(),
                     typeParametersFromEnclosingContextOf(owner));
